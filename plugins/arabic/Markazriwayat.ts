@@ -19,7 +19,7 @@ class Markazriwayat implements Plugin.PluginBase {
     order: {
       type: FilterTypes.Picker,
       label: 'الترتيب',
-      value: '',
+      value: 'popular',
       options: [
         { label: 'الأكثر شعبية', value: 'popular' },
         { label: 'الأحدث', value: 'new' },
