@@ -7,6 +7,8 @@ import dayjs from 'dayjs';
 type WebNovelWorldOptions = {
   lang?: string;
   versionIncrements?: number;
+  down?: boolean;
+  downSince?: number;
 };
 
 export type WebNovelWorldMetadata = {
@@ -39,7 +41,7 @@ export class WebNovelWorld implements Plugin.PagePlugin {
     this.icon = `multisrc/webnovelworld/${metadata.id.toLowerCase()}/icon.png`;
     this.site = metadata.sourceSite;
     const versionIncrements = metadata.options?.versionIncrements || 0;
-    this.version = `1.0.${1 + versionIncrements}`;
+    this.version = `1.0.${2 + versionIncrements}`;
     this.options = metadata.options;
     this.filters = metadata.filters;
   }
