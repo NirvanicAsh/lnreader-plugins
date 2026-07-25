@@ -1,23 +1,23 @@
 import { load as parseHTML } from 'cheerio';
 import { fetchApi } from '@libs/fetch';
 import { Plugin } from '@/types/plugin';
-import { Filters, FilterTypes } from '@libs/filterInputs';
+import { Filters } from '@libs/filterInputs';
 import dayjs from 'dayjs';
 
-type LightNovelWorldOptions = {
+type WebNovelWorldOptions = {
   lang?: string;
   versionIncrements?: number;
 };
 
-export type LightNovelWorldMetadata = {
+export type WebNovelWorldMetadata = {
   id: string;
   sourceSite: string;
   sourceName: string;
-  options?: LightNovelWorldOptions;
+  options?: WebNovelWorldOptions;
   filters?: Filters;
 };
 
-export class LightNovelWorld implements Plugin.PagePlugin {
+export class WebNovelWorld implements Plugin.PagePlugin {
   id: string;
   name: string;
   site: string;
@@ -30,16 +30,18 @@ export class LightNovelWorld implements Plugin.PagePlugin {
   imageRequestInit?: Plugin.ImageRequestInit | undefined = {
     headers: this.headers,
   };
-  options?: LightNovelWorldOptions;
+  options?: WebNovelWorldOptions;
+  filters?: Filters;
 
-  constructor(metadata: LightNovelWorldMetadata) {
+  constructor(metadata: WebNovelWorldMetadata) {
     this.id = metadata.id;
     this.name = metadata.sourceName;
-    this.icon = `multisrc/lightnovelworld/${metadata.id.toLowerCase()}/icon.png`;
+    this.icon = `multisrc/webnovelworld/${metadata.id.toLowerCase()}/icon.png`;
     this.site = metadata.sourceSite;
     const versionIncrements = metadata.options?.versionIncrements || 0;
     this.version = `1.0.${1 + versionIncrements}`;
     this.options = metadata.options;
+    this.filters = metadata.filters;
   }
 
   async popularNovels(
@@ -47,9 +49,9 @@ export class LightNovelWorld implements Plugin.PagePlugin {
     { filters }: Plugin.PopularNovelsOptions<typeof this.filters>,
   ): Promise<Plugin.NovelItem[]> {
     let link = `${this.site}browse/`;
-    link += `${filters.genres.value}/`;
-    link += `${filters.order.value}/`;
-    link += `${filters.status.value}/`;
+    link += `${filters?.genres?.value || 'all'}/`;
+    link += `${filters?.order?.value || 'popular'}/`;
+    link += `${filters?.status?.value || 'all'}/`;
     link += page;
 
     const body = await fetchApi(link).then((r: Response) => r.text());
@@ -191,76 +193,4 @@ export class LightNovelWorld implements Plugin.PagePlugin {
 
     return novels;
   }
-
-  filters = {
-    order: {
-      value: 'popular',
-      label: 'Order by',
-      options: [
-        { label: 'New', value: 'new' },
-        { label: 'Popular', value: 'popular' },
-        { label: 'Updates', value: 'updated' },
-      ],
-      type: FilterTypes.Picker,
-    },
-    status: {
-      value: 'all',
-      label: 'Status',
-      options: [
-        { label: 'All', value: 'all' },
-        { label: 'Completed', value: 'completed' },
-        { label: 'Ongoing', value: 'ongoing' },
-      ],
-      type: FilterTypes.Picker,
-    },
-    genres: {
-      value: 'all',
-      label: 'Genre',
-      options: [
-        { label: 'All', value: 'all' },
-        { label: 'Action', value: 'action' },
-        { label: 'Adventure', value: 'adventure' },
-        { label: 'Drama', value: 'drama' },
-        { label: 'Fantasy', value: 'fantasy' },
-        { label: 'Harem', value: 'harem' },
-        { label: 'Martial Arts', value: 'martial-arts' },
-        { label: 'Mature', value: 'mature' },
-        { label: 'Romance', value: 'romance' },
-        { label: 'Tragedy', value: 'tragedy' },
-        { label: 'Xuanhuan', value: 'xuanhuan' },
-        { label: 'Ecchi', value: 'ecchi' },
-        { label: 'Comedy', value: 'comedy' },
-        { label: 'Slice of Life', value: 'slice-of-life' },
-        { label: 'Mystery', value: 'mystery' },
-        { label: 'Supernatural', value: 'supernatural' },
-        { label: 'Psychological', value: 'psychological' },
-        { label: 'Sci-fi', value: 'sci-fi' },
-        { label: 'Xianxia', value: 'xianxia' },
-        { label: 'School Life', value: 'school-life' },
-        { label: 'Josei', value: 'josei' },
-        { label: 'Wuxia', value: 'wuxia' },
-        { label: 'Shounen', value: 'shounen' },
-        { label: 'Horror', value: 'horror' },
-        { label: 'Mecha', value: 'mecha' },
-        { label: 'Historical', value: 'historical' },
-        { label: 'Shoujo', value: 'shoujo' },
-        { label: 'Adult', value: 'adult' },
-        { label: 'Seinen', value: 'seinen' },
-        { label: 'Sports', value: 'sports' },
-        { label: 'Lolicon', value: 'lolicon' },
-        { label: 'Gender Bender', value: 'gender-bender' },
-        { label: 'Shounen Ai', value: 'shounen-ai' },
-        { label: 'Yaoi', value: 'yaoi' },
-        { label: 'Video Games', value: 'video-games' },
-        { label: 'Smut', value: 'smut' },
-        { label: 'Magical Realism', value: 'magical-realism' },
-        { label: 'Eastern Fantasy', value: 'eastern-fantasy' },
-        { label: 'Contemporary Romance', value: 'contemporary-romance' },
-        { label: 'Fantasy Romance', value: 'fantasy-romance' },
-        { label: 'Shoujo Ai', value: 'shoujo-ai' },
-        { label: 'Yuri', value: 'yuri' },
-      ],
-      type: FilterTypes.Picker,
-    },
-  } satisfies Filters;
 }
