@@ -26,7 +26,7 @@ class Markazriwayat implements Plugin.PluginBase {
         { label: 'الأعلى تقييماً', value: 'rating' },
       ],
     },
-  };
+  } satisfies Filters;
 
   private async fetchHtml(url: string): Promise<string> {
     const res = await fetchApi(url, {
