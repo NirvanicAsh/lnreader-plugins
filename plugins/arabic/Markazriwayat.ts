@@ -66,7 +66,7 @@ class Markazriwayat implements Plugin.PluginBase {
     if (showLatestNovels) {
       url += 'new/';
     } else {
-      url += '${filters.order.value}/';
+      url += `${filters.order.value}/`;
     }
     if (page > 1) url += `page/${page}/`;
 
