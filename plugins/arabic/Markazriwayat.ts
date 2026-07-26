@@ -83,9 +83,7 @@ class Markazriwayat implements Plugin.PluginBase {
   ): Promise<Plugin.NovelItem[]> {
     try {
       const apiUrl = `${this.site}wp-json/theam/v1/novel-search?term=${encodeURIComponent(searchTerm)}&per_page=20`;
-      const res = await fetchApi(apiUrl, {
-        headers: { 'User-Agent': this.UA },
-      });
+      const res = await fetchApi(apiUrl)
       if (!res.ok) return [];
       const data = await res.json();
       return (data.items || []).map(
