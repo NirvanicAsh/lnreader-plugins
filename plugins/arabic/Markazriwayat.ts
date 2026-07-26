@@ -60,7 +60,10 @@ class Markazriwayat implements Plugin.PluginBase {
 
   async popularNovels(
     page: number,
-    { filters, showLatestNovels }: Plugin.PopularNovelsOptions,
+    {
+      filters,
+      showLatestNovels,
+    }: Plugin.PopularNovelsOptions<typeof this.filters>,
   ): Promise<Plugin.NovelItem[]> {
     let url = `${this.site}`;
     if (showLatestNovels) {
