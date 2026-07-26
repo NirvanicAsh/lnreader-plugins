@@ -82,6 +82,7 @@ class Markazriwayat implements Plugin.PluginBase {
     page: number,
   ): Promise<Plugin.NovelItem[]> {
     try {
+      if (page > 1) return [];
       const apiUrl = `${this.site}wp-json/theam/v1/novel-search?term=${encodeURIComponent(searchTerm)}&per_page=20`;
       const res = await fetchApi(apiUrl)
       if (!res.ok) return [];
