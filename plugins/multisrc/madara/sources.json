@@ -634,15 +634,6 @@
     }
   },
   {
-    "id": "markazriwayat",
-    "sourceSite": "https://markazriwayat.com/",
-    "sourceName": "Markazriwayat",
-    "options": {
-      "lang": "Arabic",
-      "useNewChapterEndpoint": true
-    }
-  },
-  {
     "id": "lullobox",
     "sourceSite": "https://lullobox.com/",
     "sourceName": "LulloBox",
