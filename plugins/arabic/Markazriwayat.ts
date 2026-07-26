@@ -27,9 +27,7 @@ class Markazriwayat implements Plugin.PluginBase {
   } satisfies Filters;
 
   private async fetchHtml(url: string): Promise<string> {
-    const res = await fetchApi(url, {
-      headers: { 'User-Agent': this.UA },
-    });
+    const res = await fetchApi(url);
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     return res.text();
   }
