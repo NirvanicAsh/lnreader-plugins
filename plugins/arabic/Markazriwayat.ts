@@ -12,8 +12,6 @@ class Markazriwayat implements Plugin.PluginBase {
   icon = 'src/ar/markazriwayat/icon.png';
   site = 'https://markazriwayat.com/';
 
-  private UA =
-    'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36';
 
   filters = {
     order: {
