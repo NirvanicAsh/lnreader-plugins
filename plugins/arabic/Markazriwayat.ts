@@ -1,6 +1,6 @@
 import { load as parseHTML } from 'cheerio';
 import { fetchApi } from '@libs/fetch';
-import { Plugin } from '@libs/types';
+import { Plugin } from '@/types/plugin';
 import { defaultCover } from '@libs/defaultCover';
 import { NovelStatus } from '@libs/novelStatus';
 import { FilterTypes, Filters } from '@libs/filterInputs';
