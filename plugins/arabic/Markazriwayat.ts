@@ -88,7 +88,8 @@ class Markazriwayat implements Plugin.PluginBase {
       });
       if (!res.ok) return [];
       const data = await res.json();
-      return (data.items || []).map((item: any) => ({
+      return (data.items || []).map(
+        (item: { title: string; link: string; cover?: string }) => ({
         name: item.title,
         path: item.link.replace(this.site, ''),
         cover: item.cover || defaultCover,
