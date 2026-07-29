@@ -1,4 +1,5 @@
 import { fetchApi } from '@libs/fetch';
+import { load as parseHTML } from 'cheerio';
 import { Filters } from '@/types/filters';
 import { Plugin } from '@/types/plugin';
 
@@ -17,61 +18,34 @@ class SkyTheWood implements Plugin.PluginBase {
 
     let page = await pageRes.text();
 
-    let document = new DOMParser().parseFromString(page, 'text/html');
+    let $ = parseHTML(page);
 
-    let projects = Array.from<HTMLAnchorElement>(
-      document.querySelectorAll('.post-body > div a'),
-    )
-      .filter(el => el.href)
-      .filter(
-        el =>
-          el.href.startsWith('http://skythewood.blogspot.sg/p/') ||
-          el.href.startsWith('http://skythewood.blogspot.com/p/') ||
-          el.href.startsWith('https://skythewood.blogspot.sg/p/') ||
-          el.href.startsWith('https://skythewood.blogspot.com/p/'),
-      )
-      .filter(el => el.innerText);
+    let anchors = $('.post-body > div a').toArray();
 
-    console.log(projects.map(el => [el.innerText, el.href]));
+    let projects = anchors
+      .filter(el => $(el).attr('href'))
+      .filter(el => {
+        let href = $(el).attr('href')!;
+        return (
+          href.startsWith('http://skythewood.blogspot.sg/p/') ||
+          href.startsWith('http://skythewood.blogspot.com/p/') ||
+          href.startsWith('https://skythewood.blogspot.sg/p/') ||
+          href.startsWith('https://skythewood.blogspot.com/p/')
+        );
+      })
+      .filter(el => $(el).text());
 
-    let dedup: HTMLAnchorElement[] = [];
+    console.log(projects.map(el => [$(el).text(), $(el).attr('href')]));
+
+    let dedup: Element[] = [];
 
     for (const proj of projects) {
-      if (!dedup.some(el => el.href == proj.href)) {
+      if (!dedup.some(el => $(el).attr('href') == $(proj).attr('href'))) {
         dedup.push(proj);
       }
     }
 
-    function findCovers(container: Element, anchors: HTMLAnchorElement[]) {
-      let anchorSet = new Set(anchors);
-      let result = [];
-      let lastImg: HTMLImageElement | null = null;
-
-      let walker = document.createTreeWalker(
-        container,
-        NodeFilter.SHOW_ELEMENT,
-      );
-      while (walker.nextNode()) {
-        let node = walker.currentNode as HTMLElement;
-
-        if (node.tagName === 'IMG') {
-          lastImg = node as HTMLImageElement;
-        }
-
-        if (anchorSet.has(node as HTMLAnchorElement)) {
-          let a = node as HTMLAnchorElement;
-          result.push({
-            name: a.innerText,
-            href: a.href,
-            cover: lastImg?.src,
-          });
-        }
-      }
-      return result;
-    }
-
-    let container = document.querySelector('.post-body')!;
-    let withCovers = findCovers(container, dedup);
+    let withCovers = findCovers($, dedup);
 
     let novels: Plugin.NovelItem[] = [];
 
@@ -92,69 +66,33 @@ class SkyTheWood implements Plugin.PluginBase {
   async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
     let pageRes = await fetchApi(novelPath);
     let page = await pageRes.text();
-    let document = new DOMParser().parseFromString(page, 'text/html');
+    let $ = parseHTML(page);
 
-    let name = (document.querySelector('.post-title') as HTMLDivElement)
-      ?.innerText;
+    let name = $('.post-title').text();
 
-    let artist: undefined | string = undefined;
+    let artist: string | undefined;
     {
-      let arr = Array.from(document.querySelectorAll('b'));
-
-      let filt = arr.filter(el => el.innerText.startsWith('Author'));
-
-      if (filt.length) {
-        artist = filt[0].innerText.split(':')[1];
+      let boldEls = $('b').toArray();
+      let authorEl = boldEls.find(el => $(el).text().startsWith('Author'));
+      if (authorEl) {
+        artist = $(authorEl).text().split(':')[1].trim();
       }
     }
 
-    let chapterArray = Array.from<HTMLAnchorElement>(
-      document.querySelectorAll('.post-body a'),
-    );
+    let chapterAnchors = $('.post-body a').toArray();
 
-    let filtered = chapterArray
-      .filter(el => el.href)
-      .filter(el => el.href.includes('skythewood'));
+    let filtered = chapterAnchors
+      .filter(el => $(el).attr('href'))
+      .filter(el => $(el).attr('href')!.includes('skythewood'));
 
-    function findVolumes(container: Element, anchors: HTMLAnchorElement[]) {
-      let anchorSet = new Set(anchors);
-      let result = [];
-      let lastVolume: string | null = null;
-
-      let walker = document.createTreeWalker(
-        container,
-        NodeFilter.SHOW_ELEMENT,
-      );
-      while (walker.nextNode()) {
-        let node = walker.currentNode as HTMLElement;
-
-        if (node.innerText.startsWith('Volume')) {
-          lastVolume = node.innerText;
-        }
-
-        if (anchorSet.has(node as HTMLAnchorElement)) {
-          let a = node as HTMLAnchorElement;
-          result.push({
-            name: a.innerText,
-            href: a.href,
-            volume: lastVolume,
-          });
-        }
-      }
-      return result;
-    }
-
-    let container = document.querySelector('.post-body')!;
-    let withVolumes = findVolumes(container, filtered);
+    let withVolumes = findVolumes($, filtered);
 
     let chapters: Plugin.ChapterItem[] = [];
 
     for (const ch of withVolumes) {
-      if (ch.volume) {
-        ch.name = `${ch.volume} - ${ch.name}`;
-      }
+      let name = ch.volume ? `${ch.volume} - ${ch.name}` : ch.name;
       let chapter: Plugin.ChapterItem = {
-        name: ch.name,
+        name: name,
         path: ch.href.replace('http://', 'https://'),
       };
       chapters.push(chapter);
@@ -163,7 +101,7 @@ class SkyTheWood implements Plugin.PluginBase {
     return {
       name: name,
       path: novelPath,
-      cover: document.querySelectorAll('img')[1]?.src,
+      cover: $('img').eq(1).attr('src'),
       artist,
       chapters,
     };
@@ -172,12 +110,11 @@ class SkyTheWood implements Plugin.PluginBase {
   async parseChapter(chapterPath: string): Promise<string> {
     let pageRes = await fetchApi(chapterPath);
     let page = await pageRes.text();
-    let document = new DOMParser().parseFromString(page, 'text/html');
+    let $ = parseHTML(page);
 
-    let body = document.querySelector('.post-body');
-    console.log(body);
+    let body = $('.post-body').html();
 
-    return body?.innerHTML || '';
+    return body || '';
   }
 
   searchNovels(
@@ -189,6 +126,59 @@ class SkyTheWood implements Plugin.PluginBase {
   resolveUrl?(path: string, isNovel?: boolean): string {
     throw new Error('Method not implemented.');
   }
+}
+
+function findCovers($: cheerio.CheerioAPI, anchors: Element[]) {
+  let anchorSet = new Set(anchors);
+  let result: { name: string; href: string; cover: string | undefined }[] = [];
+  let lastImg: string | undefined;
+
+  $('.post-body')
+    .find('*')
+    .each((_, el) => {
+      let $el = $(el);
+
+      if ($el.prop('tagName') === 'IMG') {
+        lastImg = $el.attr('src') || undefined;
+      }
+
+      if (anchorSet.has(el)) {
+        result.push({
+          name: $el.text(),
+          href: $el.attr('href') || '',
+          cover: lastImg,
+        });
+      }
+    });
+
+  return result;
+}
+
+function findVolumes($: cheerio.CheerioAPI, anchors: Element[]) {
+  let anchorSet = new Set(anchors);
+  let result: { name: string; href: string; volume: string | null }[] = [];
+  let lastVolume: string | null = null;
+
+  $('.post-body')
+    .find('*')
+    .each((_, el) => {
+      let $el = $(el);
+      let text = $el.text();
+
+      if (text.startsWith('Volume')) {
+        lastVolume = text;
+      }
+
+      if (anchorSet.has(el)) {
+        result.push({
+          name: text,
+          href: $el.attr('href') || '',
+          volume: lastVolume,
+        });
+      }
+    });
+
+  return result;
 }
 
 export default new SkyTheWood();
