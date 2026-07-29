@@ -1,7 +1,6 @@
-import { fetchApi } from '@/lib/fetch';
+import { fetchApi } from '@libs/fetch';
 import { Filters } from '@/types/filters';
 import { Plugin } from '@/types/plugin';
-import { Volume } from 'lucide-react';
 
 class SkyTheWood implements Plugin.PluginBase {
   id: string = 'skythewoodtranslations';
