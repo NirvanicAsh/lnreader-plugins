@@ -15,7 +15,7 @@ type WPPage = {
 class RewayahFans implements Plugin.PluginBase {
   id = 'rewayahfans';
   name = 'روايه فانز';
-  version = '5.0.0';
+  version = '1.0.0';
   icon = 'src/ar/rewayahfans/icon.png';
   site = 'https://rewayahfans.net/';
 
