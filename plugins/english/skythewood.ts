@@ -1,19 +1,53 @@
 import { fetchApi } from '@libs/fetch';
-import { load as parseHTML } from 'cheerio';
+import { CheerioAPI, load as parseHTML } from 'cheerio';
+import { Element } from 'domhandler';
 import { Filters } from '@/types/filters';
 import { Plugin } from '@/types/plugin';
 
 class SkyTheWood implements Plugin.PluginBase {
-  id: string = 'skythewoodtranslations';
-  name: string = 'Skythewood Translations';
-  site: string = 'https://skythewood.blogspot.com';
-  icon: string = 'favicon.ico';
-  version: string = '1.0.0';
+  id = 'skythewoodtranslations';
+  name = 'Skythewood Translations';
+  site = 'https://skythewood.blogspot.com';
+  icon = 'favicon.ico';
+  version = '1.0.0';
 
   async popularNovels(
     pageNo: number,
-    options: Plugin.PopularNovelsOptions<Filters>,
+    _options: Plugin.PopularNovelsOptions<Filters>,
   ): Promise<Plugin.NovelItem[]> {
+    // I'm fetching all the completed project here in one go
+    // There are no novels in the ongoing projects page right now so that won't work
+    //   And this is a blogger site with a messy link structure so not every novel is visible
+    // tbh idk how i can fix that but some is better than none so "\-(シ)-/"
+    if (pageNo > 1) return Promise.reject();
+
+    type SkyProjects = {
+      names: string[][];
+      novels: {
+        name: string;
+        href: string;
+        cover: string | undefined;
+      }[];
+    };
+
+    let doneProjects: SkyProjects = await this.getDoneProjects();
+    let ongoingProjects: SkyProjects = { names: [], novels: [] };
+
+    let projects = ongoingProjects.novels.concat(doneProjects.novels);
+
+    let novels: Plugin.NovelItem[] = [];
+
+    for (const proj of projects) {
+      let newNovel: Plugin.NovelItem = this.projectToNovel(proj);
+      novels.push(newNovel);
+    }
+
+    // console.log(novels);
+
+    return novels;
+  }
+
+  private async getDoneProjects() {
     let pageRes = await fetchApi('https://skythewood.blogspot.com/p/done.html');
 
     let page = await pageRes.text();
@@ -35,32 +69,29 @@ class SkyTheWood implements Plugin.PluginBase {
       })
       .filter(el => $(el).text());
 
-    console.log(projects.map(el => [$(el).text(), $(el).attr('href')]));
+    // console.log(projects.map(el => [$(el).text(), $(el).attr('href')]));
 
     let dedup: Element[] = [];
+    let names: string[][] = [];
 
     for (const proj of projects) {
-      if (!dedup.some(el => $(el).attr('href') == $(proj).attr('href'))) {
+      if ($(proj).text().length == 0) continue;
+
+      let dupIndex = dedup.findIndex(
+        el => $(el).attr('href') == $(proj).attr('href'),
+      );
+      if (dupIndex === -1) {
         dedup.push(proj);
-      }
+        names.push([$(proj).text()]);
+      } else names[dupIndex].push($(proj).text());
     }
 
     let withCovers = findCovers($, dedup);
 
-    let novels: Plugin.NovelItem[] = [];
-
-    for (const { name, href, cover } of withCovers) {
-      let newNovel: Plugin.NovelItem = {
-        name: name,
-        path: href.replace('http://', 'https://'),
-        cover: cover,
-      };
-      novels.push(newNovel);
-    }
-
-    console.log(novels);
-
-    return novels;
+    return {
+      novels: withCovers,
+      names: names,
+    };
   }
 
   async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
@@ -117,18 +148,46 @@ class SkyTheWood implements Plugin.PluginBase {
     return body || '';
   }
 
-  searchNovels(
+  async searchNovels(
     searchTerm: string,
     pageNo: number,
   ): Promise<Plugin.NovelItem[]> {
-    throw new Error('Method not implemented.');
+    if (pageNo > 1) return Promise.reject();
+
+    let projects = await this.getDoneProjects();
+
+    let result: Set<Plugin.NovelItem> = new Set();
+
+    for (let i = 0; i < projects.novels.length; i++) {
+      const names = projects.names[i];
+      if (!names) continue;
+
+      if (
+        names.some(name =>
+          name.toLowerCase().includes(searchTerm.toLocaleLowerCase()),
+        )
+      ) {
+        result.add(this.projectToNovel(projects.novels[i]));
+      }
+    }
+
+    return Array.from(result);
   }
-  resolveUrl?(path: string, isNovel?: boolean): string {
-    throw new Error('Method not implemented.');
+
+  projectToNovel(proj: {
+    name: string;
+    href: string;
+    cover: string | undefined;
+  }): Plugin.NovelItem {
+    return {
+      name: proj.name,
+      path: proj.href.replace('http://', 'https://'),
+      cover: proj.cover,
+    };
   }
 }
 
-function findCovers($: cheerio.CheerioAPI, anchors: Element[]) {
+function findCovers($: CheerioAPI, anchors: Element[]) {
   let anchorSet = new Set(anchors);
   let result: { name: string; href: string; cover: string | undefined }[] = [];
   let lastImg: string | undefined;
@@ -154,7 +213,7 @@ function findCovers($: cheerio.CheerioAPI, anchors: Element[]) {
   return result;
 }
 
-function findVolumes($: cheerio.CheerioAPI, anchors: Element[]) {
+function findVolumes($: CheerioAPI, anchors: Element[]) {
   let anchorSet = new Set(anchors);
   let result: { name: string; href: string; volume: string | null }[] = [];
   let lastVolume: string | null = null;
