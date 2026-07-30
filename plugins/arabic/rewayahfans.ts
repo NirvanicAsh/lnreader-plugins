@@ -8,7 +8,7 @@ type WPPage = {
   date: string;
   content?: { rendered: string };
   _embedded?: {
-    'wp:featuredmedia'?: Array<{ source_url: string }>;
+    'wp:featuredmedia'?: { source_url: string }[];  // ✅ استخدم T[] بدلاً من Array<T>
   };
 };
 
@@ -63,9 +63,10 @@ class RewayahFans implements Plugin.PluginBase {
     return novels;
   }
 
+  // ✅ إزالة showLatestNovels (أو وضع _ للإشارة إلى عدم الاستخدام)
   async popularNovels(
     page: number,
-    { showLatestNovels }: Plugin.PopularNovelsOptions,
+    _options: Plugin.PopularNovelsOptions,
   ): Promise<Plugin.NovelItem[]> {
     const allNovels = await this.loadAllNovels();
     if (page > 1) return [];
@@ -76,16 +77,99 @@ class RewayahFans implements Plugin.PluginBase {
     const novel: Plugin.SourceNovel = {
       path: novelPath,
       name: '',
+      cover: '',      // ✅ إضافة
+      summary: '',    // ✅ إضافة
+      author: '',     // ✅ إضافة
+      genres: [],     // ✅ إضافة
+      status: '',     // ✅ إضافة
       chapters: [],
     };
 
     const html = await this.fetchHtml(`${this.site}${novelPath}`);
     const $ = parseHTML(html);
 
-    // Get novel name from <title> tag (format: "Novel Name - الصفحة الرئيسية")
+    // ----- الاسم -----
     const titleTag = $('title').text().trim();
-    novel.name = titleTag.split(' - ')[0].trim() || titleTag.split('–')[0].trim();
+    novel.name = titleTag.split(' - ')[0].trim() || titleTag.split('–')[0].trim() || 'بدون عنوان';
 
+    // ----- الغلاف (cover) -----
+    // قد يكون في img.wp-post-image أو داخل .entry-image
+    const coverImg = $('img.wp-post-image, .entry-image img, .post-thumbnail img, figure.wp-block-image img').first();
+    novel.cover = coverImg.attr('src') || coverImg.attr('data-src') || '';
+
+    // ----- الملخص (summary) -----
+    // غالباً في أول فقرة داخل .entry-content
+    const summaryEl = $('.entry-content p, .post-content p').first();
+    novel.summary = summaryEl.text().trim() || '';
+
+    // ----- المؤلف (author) -----
+    let authorText = '';
+    // البحث عن عنصر يحتوي على "المؤلف" أو "كاتب"
+    $('*').each((_, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('المؤلف') || text.includes('كاتب')) {
+        const parent = $(el).parent();
+        const sibling = parent.next();
+        if (sibling.length) {
+          authorText = sibling.text().trim();
+        } else {
+          const parts = text.split(':');
+          if (parts.length > 1) {
+            authorText = parts[1].trim();
+          }
+        }
+        return false; // break
+      }
+    });
+    // بديل: البحث عن .author a
+    if (!authorText) {
+      const authorEl = $('.author a, .novel-author a, .post-author a').first();
+      authorText = authorEl.text().trim() || '';
+    }
+    novel.author = authorText;
+
+    // ----- التصنيفات (genres) -----
+    const genres: string[] = [];
+    $('.genres a, .taxonomy a, .post-tags a, .category a').each((_, el) => {
+      const g = $(el).text().trim();
+      if (g && !genres.includes(g)) {
+        genres.push(g);
+      }
+    });
+    novel.genres = genres;
+
+    // ----- الحالة (status) -----
+    let statusText = '';
+    $('*').each((_, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('الحالة') || text.includes('Status')) {
+        const parent = $(el).parent();
+        const sibling = parent.next();
+        if (sibling.length) {
+          statusText = sibling.text().trim();
+        } else {
+          const parts = text.split(':');
+          if (parts.length > 1) {
+            statusText = parts[1].trim();
+          }
+        }
+        return false;
+      }
+    });
+    if (!statusText) {
+      const statusEl = $('.status, .novel-status, .post-status').first();
+      statusText = statusEl.text().trim() || '';
+    }
+    // توحيد النص إلى "مكتملة" أو "مستمرة" حسب الاقتضاء
+    if (statusText.includes('مكتملة') || statusText.includes('Complete')) {
+      novel.status = 'مكتملة';
+    } else if (statusText.includes('مستمرة') || statusText.includes('Ongoing')) {
+      novel.status = 'مستمرة';
+    } else {
+      novel.status = statusText;
+    }
+
+    // ----- الفصول (chapters) -----
     const chapterSet = new Set<string>();
 
     $('a').each((_, el) => {
