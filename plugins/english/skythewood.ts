@@ -19,7 +19,7 @@ class SkyTheWood implements Plugin.PluginBase {
     // There are no novels in the ongoing projects page right now so that won't work
     //   And this is a blogger site with a messy link structure so not every novel is visible
     // tbh idk how i can fix that but some is better than none so "\-(シ)-/"
-    if (pageNo > 1) return Promise.reject();
+    if (pageNo > 1) return [];
 
     type SkyProjects = {
       names: string[][];
@@ -152,7 +152,7 @@ class SkyTheWood implements Plugin.PluginBase {
     searchTerm: string,
     pageNo: number,
   ): Promise<Plugin.NovelItem[]> {
-    if (pageNo > 1) return Promise.reject();
+    if (pageNo > 1) return [];
 
     let projects = await this.getDoneProjects();
 
