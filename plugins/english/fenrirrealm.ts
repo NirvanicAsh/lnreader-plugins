@@ -304,9 +304,20 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
 
     const loadedCheerio = loadCheerio(body);
 
-    let chapterText = loadedCheerio('div.content-area p')
-      .map((_, el) => `<p>${loadCheerio(el).html()}</p>`)
+    // Clean up anti-scraping and watermark elements first
+    loadedCheerio('[aria-hidden="true"]').remove();
+    loadedCheerio('.reader-attribution').remove();
+    loadedCheerio('[data-fr-attr]').remove();
+
+    let chapterText = loadedCheerio(
+      '.reader-area p, div.content-area p, [id^="reader-area"] p',
+    )
+      .map((_, el) => {
+        const html = loadedCheerio(el).html()?.trim();
+        return html ? `<p>${html}</p>` : '';
+      })
       .get()
+      .filter(Boolean)
       .join('\n');
 
     if (chapterText) {
