@@ -75,7 +75,7 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
   name = 'Fenrir Realm';
   icon = 'src/en/fenrirrealm/icon.png';
   site = 'https://fenrirealm.com';
-  version = '1.1.1';
+  version = '1.1.2';
   imageRequestInit?: Plugin.ImageRequestInit | undefined = undefined;
 
   hideLocked = storage.get('hideLocked');
@@ -400,8 +400,9 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
     };
   }
 
-  // resolveUrl = (path: string, isNovel?: boolean) =>
-  //    this.site + '/series/' + path.split('~~')[0];
+  resolveUrl(path: string, isNovel?: boolean): string {
+    return `${this.site}/series/${path.split('~~')[0]}`;
+  }
 
   filters = {
     status: {
