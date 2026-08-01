@@ -411,7 +411,7 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
     };
   }
 
-  resolveUrl(path: string, isNovel?: boolean): string {
+  resolveUrl(path: string): string {
     return `${this.site}/series/${path.split('~~')[0]}`;
   }
 
