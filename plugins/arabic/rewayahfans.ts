@@ -8,7 +8,7 @@ type WPPage = {
   date: string;
   content?: { rendered: string };
   _embedded?: {
-    'wp:featuredmedia'?: { source_url: string }[];  // ✅ استخدم T[] بدلاً من Array<T>
+    'wp:featuredmedia'?: { source_url: string }[];
   };
 };
 
@@ -46,7 +46,8 @@ class RewayahFans implements Plugin.PluginBase {
     $('figure.wp-block-image').each((_, el) => {
       const fig = $(el);
       const linkEl = fig.find('figcaption a').first();
-      const href = linkEl.attr('href') || fig.find('a').first().attr('href') || '';
+      const href =
+        linkEl.attr('href') || fig.find('a').first().attr('href') || '';
       const name = linkEl.text().trim();
       const cover = fig.find('img').attr('src') || '';
 
@@ -63,7 +64,6 @@ class RewayahFans implements Plugin.PluginBase {
     return novels;
   }
 
-  // ✅ إزالة showLatestNovels (أو وضع _ للإشارة إلى عدم الاستخدام)
   async popularNovels(
     page: number,
     _options: Plugin.PopularNovelsOptions,
@@ -77,34 +77,36 @@ class RewayahFans implements Plugin.PluginBase {
     const novel: Plugin.SourceNovel = {
       path: novelPath,
       name: '',
-      cover: '',      // ✅ إضافة
-      summary: '',    // ✅ إضافة
-      author: '',     // ✅ إضافة
-      genres: [],     // ✅ إضافة
-      status: '',     // ✅ إضافة
+      cover: '',
+      summary: '',
+      author: '',
+      genres: '',
+      status: '',
       chapters: [],
     };
 
     const html = await this.fetchHtml(`${this.site}${novelPath}`);
     const $ = parseHTML(html);
 
-    // ----- الاسم -----
+    // Get novel name from <title> tag (format: "Novel Name - ...")
     const titleTag = $('title').text().trim();
-    novel.name = titleTag.split(' - ')[0].trim() || titleTag.split('–')[0].trim() || 'بدون عنوان';
+    novel.name =
+      titleTag.split(' - ')[0].trim() ||
+      titleTag.split('–')[0].trim() ||
+      'بدون عنوان';
 
-    // ----- الغلاف (cover) -----
-    // قد يكون في img.wp-post-image أو داخل .entry-image
-    const coverImg = $('img.wp-post-image, .entry-image img, .post-thumbnail img, figure.wp-block-image img').first();
+    // Cover image
+    const coverImg = $(
+      'img.wp-post-image, .entry-image img, .post-thumbnail img, figure.wp-block-image img',
+    ).first();
     novel.cover = coverImg.attr('src') || coverImg.attr('data-src') || '';
 
-    // ----- الملخص (summary) -----
-    // غالباً في أول فقرة داخل .entry-content
+    // Summary
     const summaryEl = $('.entry-content p, .post-content p').first();
     novel.summary = summaryEl.text().trim() || '';
 
-    // ----- المؤلف (author) -----
+    // Author
     let authorText = '';
-    // البحث عن عنصر يحتوي على "المؤلف" أو "كاتب"
     $('*').each((_, el) => {
       const text = $(el).text().trim();
       if (text.includes('المؤلف') || text.includes('كاتب')) {
@@ -118,17 +120,17 @@ class RewayahFans implements Plugin.PluginBase {
             authorText = parts[1].trim();
           }
         }
-        return false; // break
+        return false;
       }
     });
-    // بديل: البحث عن .author a
+    // Fallback: .author a
     if (!authorText) {
       const authorEl = $('.author a, .novel-author a, .post-author a').first();
       authorText = authorEl.text().trim() || '';
     }
     novel.author = authorText;
 
-    // ----- التصنيفات (genres) -----
+    // Genres
     const genres: string[] = [];
     $('.genres a, .taxonomy a, .post-tags a, .category a').each((_, el) => {
       const g = $(el).text().trim();
@@ -136,9 +138,9 @@ class RewayahFans implements Plugin.PluginBase {
         genres.push(g);
       }
     });
-    novel.genres = genres;
+    novel.genres = genres.join(', ');
 
-    // ----- الحالة (status) -----
+    // Status
     let statusText = '';
     $('*').each((_, el) => {
       const text = $(el).text().trim();
@@ -160,16 +162,18 @@ class RewayahFans implements Plugin.PluginBase {
       const statusEl = $('.status, .novel-status, .post-status').first();
       statusText = statusEl.text().trim() || '';
     }
-    // توحيد النص إلى "مكتملة" أو "مستمرة" حسب الاقتضاء
     if (statusText.includes('مكتملة') || statusText.includes('Complete')) {
       novel.status = 'مكتملة';
-    } else if (statusText.includes('مستمرة') || statusText.includes('Ongoing')) {
+    } else if (
+      statusText.includes('مستمرة') ||
+      statusText.includes('Ongoing')
+    ) {
       novel.status = 'مستمرة';
     } else {
       novel.status = statusText;
     }
 
-    // ----- الفصول (chapters) -----
+    // Chapters
     const chapterSet = new Set<string>();
 
     $('a').each((_, el) => {
@@ -180,7 +184,11 @@ class RewayahFans implements Plugin.PluginBase {
       if (!href.startsWith(this.site)) return;
 
       const chapterPath = href.replace(this.site, '').replace(/\/$/, '');
-      if (chapterPath === novelPath || chapterPath === novelPath.replace(/\/$/, '')) return;
+      if (
+        chapterPath === novelPath ||
+        chapterPath === novelPath.replace(/\/$/, '')
+      )
+        return;
       if (chapterSet.has(chapterPath)) return;
 
       const numMatch = text.match(/(\d+)/);
@@ -194,7 +202,9 @@ class RewayahFans implements Plugin.PluginBase {
       });
     });
 
-    novel.chapters!.sort((a, b) => (a.chapterNumber || 0) - (b.chapterNumber || 0));
+    novel.chapters!.sort(
+      (a, b) => (a.chapterNumber || 0) - (b.chapterNumber || 0),
+    );
 
     if (!novel.name && novel.chapters!.length > 0) {
       novel.name = this.extractNovelName(novel.chapters![0].name);
@@ -211,7 +221,9 @@ class RewayahFans implements Plugin.PluginBase {
     const arr = Array.isArray(pages) ? pages : [pages];
     if (arr.length > 0 && arr[0].content?.rendered) {
       const $ = parseHTML(arr[0].content.rendered);
-      $('script, style, .sharedaddy, .jp-relatedposts, .wp-block-spacer, .simplefavorite-button').remove();
+      $(
+        'script, style, .sharedaddy, .jp-relatedposts, .wp-block-spacer, .simplefavorite-button',
+      ).remove();
       return $.html();
     }
 
