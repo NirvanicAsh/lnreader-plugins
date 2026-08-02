@@ -1,6 +1,5 @@
 name: Publish Plugins
 
-
 on:
   push:
     branches:
