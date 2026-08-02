@@ -50,12 +50,13 @@ class RewayahFans implements Plugin.PluginBase {
         linkEl.attr('href') || fig.find('a').first().attr('href') || '';
       const name = linkEl.text().trim();
       const cover = fig.find('img').attr('src') || '';
+      const decodedCover = cover.replace(/&#038;/g, '&').replace(/&amp;/g, '&');
 
       if (name && href) {
         const path = href.replace(this.site, '').replace(/\/$/, '');
         if (!seen.has(path)) {
           seen.add(path);
-          novels.push({ name, path, cover });
+          novels.push({ name, path, cover: decodedCover });
         }
       }
     });
@@ -66,6 +67,7 @@ class RewayahFans implements Plugin.PluginBase {
 
   async popularNovels(
     page: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _options: Plugin.PopularNovelsOptions,
   ): Promise<Plugin.NovelItem[]> {
     const allNovels = await this.loadAllNovels();
@@ -88,119 +90,94 @@ class RewayahFans implements Plugin.PluginBase {
     const html = await this.fetchHtml(`${this.site}${novelPath}`);
     const $ = parseHTML(html);
 
-    // Get novel name from <title> tag (format: "Novel Name - ...")
     const titleTag = $('title').text().trim();
     novel.name =
       titleTag.split(' - ')[0].trim() ||
-      titleTag.split('–')[0].trim() ||
+      titleTag.split('\u2013')[0].trim() ||
       'بدون عنوان';
 
-    // Cover image
-    const coverImg = $(
-      'img.wp-post-image, .entry-image img, .post-thumbnail img, figure.wp-block-image img',
-    ).first();
-    novel.cover = coverImg.attr('src') || coverImg.attr('data-src') || '';
+    novel.name = this.extractNovelName(novel.name);
 
-    // Summary
-    const summaryEl = $('.entry-content p, .post-content p').first();
-    novel.summary = summaryEl.text().trim() || '';
+    const ogImage = $('meta[property="og:image"]').attr('content') || '';
+    novel.cover = ogImage || '';
 
-    // Author
-    let authorText = '';
-    $('*').each((_, el) => {
-      const text = $(el).text().trim();
-      if (text.includes('المؤلف') || text.includes('كاتب')) {
-        const parent = $(el).parent();
-        const sibling = parent.next();
-        if (sibling.length) {
-          authorText = sibling.text().trim();
-        } else {
-          const parts = text.split(':');
-          if (parts.length > 1) {
-            authorText = parts[1].trim();
-          }
+    const summaryParts: string[] = [];
+    let inStory = false;
+    let inChapters = false;
+    $('.entry-content > *').each((_, el) => {
+      const $el = $(el);
+      const tag = $el.prop('tagName')?.toLowerCase() || '';
+      const text = $el.text().trim();
+
+      if (tag === 'p' && text.startsWith('القصة')) {
+        inStory = true;
+        return;
+      }
+      if (inStory) {
+        if (tag === 'p' && text.startsWith('الفصول')) {
+          inChapters = true;
+          return false;
         }
-        return false;
-      }
-    });
-    // Fallback: .author a
-    if (!authorText) {
-      const authorEl = $('.author a, .novel-author a, .post-author a').first();
-      authorText = authorEl.text().trim() || '';
-    }
-    novel.author = authorText;
-
-    // Genres
-    const genres: string[] = [];
-    $('.genres a, .taxonomy a, .post-tags a, .category a').each((_, el) => {
-      const g = $(el).text().trim();
-      if (g && !genres.includes(g)) {
-        genres.push(g);
-      }
-    });
-    novel.genres = genres.join(', ');
-
-    // Status
-    let statusText = '';
-    $('*').each((_, el) => {
-      const text = $(el).text().trim();
-      if (text.includes('الحالة') || text.includes('Status')) {
-        const parent = $(el).parent();
-        const sibling = parent.next();
-        if (sibling.length) {
-          statusText = sibling.text().trim();
-        } else {
-          const parts = text.split(':');
-          if (parts.length > 1) {
-            statusText = parts[1].trim();
-          }
+        if (tag === 'p' && text && !inChapters) {
+          summaryParts.push(text);
         }
-        return false;
       }
     });
-    if (!statusText) {
-      const statusEl = $('.status, .novel-status, .post-status').first();
-      statusText = statusEl.text().trim() || '';
-    }
-    if (statusText.includes('مكتملة') || statusText.includes('Complete')) {
-      novel.status = 'مكتملة';
-    } else if (
-      statusText.includes('مستمرة') ||
-      statusText.includes('Ongoing')
-    ) {
-      novel.status = 'مستمرة';
-    } else {
-      novel.status = statusText;
-    }
+    novel.summary = summaryParts.join('\n') || '';
 
-    // Chapters
+    const metadataMap: Record<string, string> = {};
+    $('ul.wp-block-list li').each((_, el) => {
+      const text = $(el).text().trim();
+      const colonIdx = text.indexOf(':');
+      if (colonIdx > 0) {
+        const key = text.substring(0, colonIdx).trim();
+        const value = text.substring(colonIdx + 1).trim();
+        metadataMap[key] = value;
+      }
+    });
+
+    novel.author = metadataMap['المؤلف'] || '';
+    novel.genres = metadataMap['التصنيفات'] || '';
+    novel.status = metadataMap['الحالة'] || '';
+
     const chapterSet = new Set<string>();
 
-    $('a').each((_, el) => {
-      const href = $(el).attr('href') || '';
-      const text = $(el).text().trim();
+    const chapterSection = $(
+      'p:contains("الفصول"), p:contains("Chapters"), p:contains("Fichier"), p:contains("Capitulos"), p:contains("Capítulos"), p:contains("Chapitres"), p:contains("Kapitel"), p:contains("Файл"), p:contains("Глава"), p:contains("章")',
+    );
 
-      if (!href || !text) return;
-      if (!href.startsWith(this.site)) return;
-
-      const chapterPath = href.replace(this.site, '').replace(/\/$/, '');
-      if (
-        chapterPath === novelPath ||
-        chapterPath === novelPath.replace(/\/$/, '')
-      )
-        return;
-      if (chapterSet.has(chapterPath)) return;
-
-      const numMatch = text.match(/(\d+)/);
-      if (!numMatch) return;
-
-      chapterSet.add(chapterPath);
-      novel.chapters!.push({
-        name: text,
-        path: chapterPath,
-        chapterNumber: parseInt(numMatch[1], 10),
+    if (chapterSection.length > 0) {
+      chapterSection.nextAll().each((_, el) => {
+        const $el = $(el);
+        if ($el.hasClass('wp-block-paragraph') || $el.is('p')) {
+          $el.find('a').each((_, aEl) => {
+            const href = $(aEl).attr('href') || '';
+            const text = $(aEl).text().trim();
+            if (!href || !text) return;
+            if (!href.startsWith(this.site)) return;
+            const chapterPath = href.replace(this.site, '').replace(/\/$/, '');
+            if (chapterPath === novelPath) return;
+            if (chapterSet.has(chapterPath)) return;
+            const numMatch = text.match(/(\d+)/);
+            if (!numMatch) return;
+            const chapterNum = parseInt(numMatch[1], 10);
+            if (chapterNum === 0) return;
+            const cleanName = text.replace(/\bnew\b/i, '').trim();
+            if (cleanName.includes('النهاية')) return;
+            if (cleanName.includes('اضغط هنا')) return;
+            if (cleanName.includes('Summary')) return;
+            chapterSet.add(chapterPath);
+            novel.chapters!.push({
+              name: cleanName,
+              path: chapterPath,
+              chapterNumber: chapterNum,
+            });
+          });
+        } else {
+          return false;
+        }
       });
-    });
+    }
 
     novel.chapters!.sort(
       (a, b) => (a.chapterNumber || 0) - (b.chapterNumber || 0),
@@ -222,7 +199,7 @@ class RewayahFans implements Plugin.PluginBase {
     if (arr.length > 0 && arr[0].content?.rendered) {
       const $ = parseHTML(arr[0].content.rendered);
       $(
-        'script, style, .sharedaddy, .jp-relatedposts, .wp-block-spacer, .simplefavorite-button',
+        'script, style, .sharedaddy, .jp-relatedposts, .wp-block-spacer, .simplefavorite-button, .wp-block-jetpack-rating-star',
       ).remove();
       return $.html();
     }
