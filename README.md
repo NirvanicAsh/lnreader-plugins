@@ -10,7 +10,6 @@ Community-driven plugin repository for [LNReader](https://github.com/LNReader/ln
 
 ## Quick Start
 
-
 **Prerequisites:** Node.js >= 22 
 
 ```bash
