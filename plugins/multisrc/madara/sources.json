@@ -658,7 +658,7 @@
     "sourceName": "LunoxScans",
     "options": {
       "lang": "English",
-      "useNewChapterEndpoint": true,
+      "useNewChapterEndpoint": false,
       "versionIncrements": 1
     }
   }
