@@ -651,5 +651,15 @@
       "useNewChapterEndpoint": true,
       "versionIncrements": 2
     }
+  },
+  {
+    "id": "lunoxscans",
+    "sourceSite": "https://lunoxscans.com/",
+    "sourceName": "LunoxScans",
+    "options": {
+      "lang": "English",
+      "useNewChapterEndpoint": true,
+      "versionIncrements": 1
+    }
   }
 ]
