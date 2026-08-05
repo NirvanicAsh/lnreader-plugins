@@ -38,18 +38,15 @@ class BakaTsuki implements Plugin.PluginBase {
   private readonly pageSize = 40;
 
   /**
-   * Categories that guarantee an English project. Members are trusted verbatim.
+   * The catalogue is exactly the wiki's own English light novel listing —
+   * titles verbatim, romanised as Baka-Tsuki writes them.
    */
-  private readonly englishCategories = [
-    'Light novel (English)',
-    'Web novel (English)',
-  ];
+  private readonly catalogueCategory = 'Light novel (English)';
 
   /**
-   * Status categories are language-agnostic, so they pull in translation
-   * siblings ("Absolute Duo - Français") alongside English projects that were
-   * never given a language tag. Members are kept only if they survive
-   * `nonEnglishPattern`.
+   * Read for status only, not for catalogue membership. These are
+   * language-agnostic and would otherwise pull in translation siblings
+   * ("Absolute Duo - Français").
    */
   private readonly statusCategories: Record<string, string> = {
     'Active Projects': NovelStatus.Ongoing,
@@ -172,17 +169,10 @@ class BakaTsuki implements Plugin.PluginBase {
   /* Catalogue                                                           */
   /* ------------------------------------------------------------------ */
 
-  private isEnglishProject(title: string) {
-    return (
-      !this.nonEnglishPattern.test(title) && !this.subPagePattern.test(title)
-    );
-  }
-
   /**
-   * The wiki has no single "all English novels" category, so the catalogue is
-   * assembled from the language-tagged categories (trusted as-is) plus the
-   * status categories with non-English siblings filtered out. Cached for the
-   * session — it costs seven requests to build.
+   * The catalogue is the wiki's English light novel category, taken as-is.
+   * Status categories are read alongside it purely to populate the status map.
+   * Cached for the session — six requests to build.
    */
   private async getCatalogue(): Promise<string[]> {
     if (this.cataloguePromise) return this.cataloguePromise;
@@ -190,20 +180,15 @@ class BakaTsuki implements Plugin.PluginBase {
     this.cataloguePromise = (async () => {
       const titles = new Set<string>();
 
-      for (const category of this.englishCategories) {
-        for (const title of await this.categoryMembers(category)) {
-          if (!this.subPagePattern.test(title)) titles.add(title);
-        }
+      for (const title of await this.categoryMembers(this.catalogueCategory)) {
+        if (!this.subPagePattern.test(title)) titles.add(title);
       }
 
       for (const [category, status] of Object.entries(this.statusCategories)) {
         for (const title of await this.categoryMembers(category)) {
-          // Status is recorded even for titles the language filter rejects, so
-          // a direct visit to a translation sibling still shows its status.
           if (!this.statusByTitle.has(title)) {
             this.statusByTitle.set(title, status);
           }
-          if (this.isEnglishProject(title)) titles.add(title);
         }
       }
 
@@ -453,6 +438,10 @@ class BakaTsuki implements Plugin.PluginBase {
     // "…:Tome 1 Chapitre 1", ":Tom 1 Rozdział 2", ":Tập 2", ":Act 1". Real
     // colon-bearing projects are already covered by the catalogue check above.
     if (title.includes(':')) return false;
+    // Translation siblings are parenthesised ("Fate/Zero (Biełaruś)",
+    // "Absolute Duo (Swedish)"). Rejecting the bracket outright beats naming
+    // every language; catalogue members are already exempt.
+    if (/\([^)]+\)\s*$/.test(title)) return false;
     return (
       !this.subPagePattern.test(title) && !this.nonEnglishPattern.test(title)
     );
