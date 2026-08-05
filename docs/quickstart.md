@@ -3,19 +3,21 @@
 1. [Requirements](#requirements)
 2. [Single plugin guide](#quick-guide)
 3. [Multi-src guide](#creating-multi-src-plugins)
+4. [Testing your plugin](./testing.md)
 
 ### Requirements
 
--   [git](https://git-scm.com/doc/ext) basics
--   Typescript or Javascript basics
--   Node >=22
--   Installing the dependencies with `npm i`
+- [git](https://git-scm.com/doc/ext) basics
+- Typescript or Javascript basics
+- Node >=22
+- Installing the dependencies with `npm i`
 
 ### Guide
 
 1. Create plugin script in `/plugins` [<span style="font-size: 0.8rem;">(learn more)</span>](#creating-plugin-script)
 2. Copy code from [plugin-template.ts](./plugin-template.ts)
 3. Start coding [<span style="font-size:0.8rem">(documentation)</span>](./docs.md)
+4. Run `npm run check:plugin -- plugins/<lang>/yourPlugin.ts` before opening a PR — see [Testing your plugin](./testing.md)
 
 #### Creating plugin script
 
