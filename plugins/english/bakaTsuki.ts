@@ -21,6 +21,7 @@ type MWResponse = {
     search?: { title: string }[];
     prefixsearch?: { title: string }[];
     recentchanges?: { title: string }[];
+    allpages?: { title: string }[];
   };
   parse?: { title: string; text: string };
   continue?: Record<string, string>;
@@ -30,7 +31,7 @@ type MWResponse = {
 class BakaTsuki implements Plugin.PluginBase {
   id = 'bakatsuki';
   name = 'Baka-Tsuki';
-  version = '1.0.0';
+  version = '1.1.0';
   icon = 'src/en/bakatsuki/icon.png';
   site = 'https://www.baka-tsuki.org/project/';
 
@@ -82,6 +83,50 @@ class BakaTsuki implements Plugin.PluginBase {
    */
   private readonly nonAuthorCategoryPattern =
     /^(?:Light novel|Web novel|Original light novel|Visual novel|Audio novel|Genre|Hosted|Active|Completed|Inactive|Stalled|Teaser|Licensed|Pages? |Candidates|Articles|Project|Series|Novel|Manga)|(?:Bunko|Books|Publishing|Shoten|Shuppan|Kadokawa|Shueisha|Kodansha|Shogakukan|ASCII|Media Factory|Enterbrain|Hobby Japan|Overlap|SoftBank|Fujimi|Dengeki|Gagaga|Sneaker|Ichijinsha|Earth Star|Micro Magazine|TO Books|Alphapolis|Famitsu|Fantasia|Dash|Kobunsha|Takeshobo|Houbunsha|Media Works)/i;
+
+  /**
+   * Catalogue entries that had no sub-pages at all when last surveyed — nothing
+   * to read, so they are hidden from search. Treated as *suspicion* only: each
+   * is re-checked once per session before being hidden, so a project that gains
+   * chapters reappears on its own rather than staying hidden until this list is
+   * regenerated.
+   */
+  private readonly possiblyEmpty = new Set([
+    'Allison',
+    'Ark',
+    'Clotaku Club!',
+    'CtG—Zero Kara Sodateru Dennou Shoujo',
+    'Etsusa Bridge',
+    'Famima!',
+    'Hikaru ga Chikyuu ni Itakoro......',
+    'Hitotsu no Tairiki no Monogatari',
+    "I'm a High School Boy and a Bestselling Light Novel author, strangled by my female classmate who is my junior and a voice actress",
+    'Kamisu Reina Series',
+    'Kill No More',
+    'Lillia to Treize',
+    'Maru-MA',
+    'Meg to Seron',
+    'Mushi to Medama',
+    'Ojamajo Doremi 16',
+    'Onii-chan Dakedo Ai Sae Areba Kankei Nai yo ne—',
+    'Ore ga Ojou-Sama Gakkou ni ‘Shomin Sample’ Toshite Usarareta Ken',
+    'Ore no Kanojo to Osananajimi ga Shuraba Sugiru ~Brazilian Portuguese~',
+    'Ore no Nounai Sentakushi ga, Gakuen Love Come o Zenryoku de Jama Shiteiru',
+    'Puppetmaster',
+    'Remembrances for a certain pilot',
+    'Sayonara Piano Sonata',
+    'Sekai Ichi no Imouto-sama',
+    'Sword of the Emperor',
+    'Tabi ni Deyou, Horobiyuku Sekai no Hate Made',
+    'Tsuki Tsuki!',
+    'Tsukumodo Antique Shop',
+    'Una Simple Revisión en Español',
+    'Vamp!',
+    "We Don't Open Anywhere -There are no facts, only interpretations.-",
+    'White Album 2 Omake',
+  ]);
+
+  private contentCache = new Map<string, boolean>();
 
   private cataloguePromise: Promise<string[]> | null = null;
   private catalogue: string[] = [];
@@ -379,7 +424,7 @@ class BakaTsuki implements Plugin.PluginBase {
         .map(result => result.title)
         .filter(title => this.isNovelTitle(title));
 
-      return this.withCovers(titles);
+      return this.withCovers(await this.dropEmptyProjects(titles));
     }
 
     const scored = new Map<string, number>();
@@ -423,7 +468,7 @@ class BakaTsuki implements Plugin.PluginBase {
       .slice(0, this.pageSize)
       .map(([title]) => title);
 
-    return this.withCovers(ranked);
+    return this.withCovers(await this.dropEmptyProjects(ranked));
   }
 
   /**
@@ -431,6 +476,60 @@ class BakaTsuki implements Plugin.PluginBase {
    * the reliable test; the structural pattern is the fallback so uncategorised
    * projects stay findable.
    */
+  /**
+   * A handful of catalogue entries are project pages with no chapters behind
+   * them, which are noise in search results. Verified with one cheap existence
+   * probe, and only for titles already on the suspicion list — so a typical
+   * search costs no extra requests.
+   */
+  private async hasReadableContent(title: string): Promise<boolean> {
+    // The short form is a superset: sub-pages of the full title begin with it
+    // too, and it also covers projects filed under a shortened prefix.
+    const prefix = `${title.split(':')[0].trim()}:`;
+
+    try {
+      const json = await this.query({
+        action: 'query',
+        list: 'allpages',
+        apprefix: prefix,
+        apnamespace: '0',
+        aplimit: '1',
+      });
+      const hasContent = (json.query?.allpages?.length ?? 0) > 0;
+      this.contentCache.set(title, hasContent);
+      return hasContent;
+    } catch {
+      return true; // Never hide a novel because a probe failed.
+    }
+  }
+
+  /**
+   * A catalogue entry not on the suspicion list is known-good and costs nothing.
+   * Everything else gets probed: suspicion-list entries so a revived project
+   * un-hides itself, and non-catalogue hits because their provenance is unknown
+   * — that is how the redirect "Vamp" → "Vamp!" and stray help pages get caught.
+   */
+  private async dropEmptyProjects(titles: string[]): Promise<string[]> {
+    const probeBudget = 12;
+    let probes = 0;
+
+    const verdicts = await Promise.all(
+      titles.map(title => {
+        if (this.catalogueSet.has(title) && !this.possiblyEmpty.has(title)) {
+          return true;
+        }
+        const cached = this.contentCache.get(title);
+        if (cached !== undefined) return cached;
+        // Bounded so an odd query can't fan out into dozens of requests.
+        if (probes >= probeBudget) return true;
+        probes++;
+        return this.hasReadableContent(title);
+      }),
+    );
+
+    return titles.filter((_, index) => verdicts[index]);
+  }
+
   private isNovelTitle(title: string) {
     if (this.catalogueSet.has(title)) return true;
     // Outside the catalogue, any colon is treated as a sub-page marker.
@@ -673,12 +772,23 @@ class BakaTsuki implements Plugin.PluginBase {
         !candidate.isFullText || !chaptersPerVolume.get(candidate.volume),
     );
 
-    const chapters: Plugin.ChapterItem[] = kept.map((candidate, index) => ({
-      name: candidate.name,
-      path: this.toPath(candidate.title),
-      chapterNumber: index + 1,
-      page: candidate.volume ? `Volume ${candidate.volume}` : 'Other',
-    }));
+    // Volumes ascending, then everything ungrouped last, so the list reads
+    // Volume 1 → 2 → 3 → Other. Document order is preserved within each group.
+    const chapters: Plugin.ChapterItem[] = kept
+      .map((candidate, index) => ({ candidate, index }))
+      .sort((a, b) => {
+        const left = a.candidate.volume ? Number(a.candidate.volume) : Infinity;
+        const right = b.candidate.volume
+          ? Number(b.candidate.volume)
+          : Infinity;
+        return left === right ? a.index - b.index : left - right;
+      })
+      .map(({ candidate }, index) => ({
+        name: candidate.name,
+        path: this.toPath(candidate.title),
+        chapterNumber: index + 1,
+        page: candidate.volume ? `Volume ${candidate.volume}` : 'Other',
+      }));
 
     await this.attachReleaseTimes(chapters);
     return chapters;
