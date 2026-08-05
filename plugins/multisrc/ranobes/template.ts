@@ -37,8 +37,10 @@ export class RanobesPlugin implements Plugin.PluginBase {
 
   private async throttle(): Promise<void> {
     const previous = RanobesPlugin.requestQueue;
-    let release: () => void;
-    RanobesPlugin.requestQueue = new Promise(res => (release = res));
+    let release!: () => void;
+    RanobesPlugin.requestQueue = new Promise<void>(res => {
+      release = res;
+    });
     try {
       await previous;
       const now = Date.now();
@@ -49,7 +51,7 @@ export class RanobesPlugin implements Plugin.PluginBase {
       }
       RanobesPlugin.lastRequestTime = Date.now();
     } finally {
-      release!();
+      release();
     }
   }
 
