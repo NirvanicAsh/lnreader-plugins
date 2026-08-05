@@ -651,5 +651,10 @@
       "useNewChapterEndpoint": true,
       "versionIncrements": 2
     }
+  },
+  {
+    "id": "asianfanfics",
+    "sourceSite": "https://www.asianfanfics.com",
+    "sourceName": "asianfanfics"
   }
 ]
