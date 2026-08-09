@@ -148,4 +148,4 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
   }
 }
 
-export default new PeachPuffTranslations();
+export default new PenAndPaperTranslations();
