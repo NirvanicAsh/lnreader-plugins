@@ -6,7 +6,7 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
   id = 'penpaper';
   name = 'Pen and Paper Translations';
   site = 'https://penandpapertranslations.com/';
-  version = '1.0.6';
+  version = '1.0.7';
   icon = 'src/en/penpaper/icon.png';
 
   coversCache?: Map<string, string>;
@@ -106,11 +106,11 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
     novel.author = "Unknown";
 
     const descriptionLabel = loadedCheerio(
-      'div.entry-content p:nth-child(2)',
+      'div.entry-content p',
     ).first();
     if (descriptionLabel.length) {
       const summary = descriptionLabel
-        .nextUntil('hr.wp-block-separator')
+        .nextUntil('.lcp_catlist')
         .map((_, element) => {
           const paragraph = loadedCheerio(element);
           paragraph.find('br').replaceWith('\n');
