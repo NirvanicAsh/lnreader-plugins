@@ -64,7 +64,7 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
 
   parseNovels(loadedCheerio: CheerioAPI): Plugin.NovelItem[] {
     const novels: Plugin.NovelItem[] = [];
-    loadedCheerio('ul.wp-block-list li a[title]').each((_, element) => {
+    loadedCheerio('#modal-1-content > ul > li:nth-child(n+2):nth-child(-n+3) > ul > li a').each((_, element) => {
       const path = this.novelPath(loadedCheerio(element).attr('href'));
       if (!path) return;
       const name =
