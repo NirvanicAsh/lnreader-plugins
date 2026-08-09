@@ -110,7 +110,7 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
     ).first();
     if (descriptionLabel.length) {
       const summary = descriptionLabel
-        .nextUntil('hr.wp-block-seperator')
+        .nextUntil('hr.wp-block-separator')
         .map((_, element) => {
           const paragraph = loadedCheerio(element);
           paragraph.find('br').replaceWith('\n');
