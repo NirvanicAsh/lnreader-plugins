@@ -7,7 +7,7 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
   name = 'Pen and Paper Translations';
   site = 'https://penandpapertranslations.com/';
   version = '1.0.0';
-  icon = 'src/english/peachpuff/icon.png';
+  icon = 'src/en/penpaper/icon.png';
 
   coversCache?: Map<string, string>;
 
