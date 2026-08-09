@@ -96,11 +96,11 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
 
     const novel: Plugin.SourceNovel = {
       path: novelPath,
-      name: loadedCheerio('div.entry-title h2').first().text().trim(),
+      name: loadedCheerio('div.wp-block-group h2').first().text().trim(),
     };
 
     novel.cover = this.cleanCover(
-      loadedCheerio('figure.wp-block-image img').first().attr('src'),
+      loadedCheerio('figure.wp-block-post-featured-image img').first().attr('src'),
     );
 
     loadedCheerio('p.wp-block-paragraph strong').each((_, element) => {
