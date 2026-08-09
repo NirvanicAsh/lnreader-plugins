@@ -106,12 +106,11 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
     novel.author = "Unknown";
 
     const descriptionLabel = loadedCheerio(
-      'p.wp-block-paragraph strong:contains("Description:")',
+      'div.entry-content p:nth-child(2)',
     ).first();
     if (descriptionLabel.length) {
       const summary = descriptionLabel
-        .parent()
-        .nextUntil('h4.wp-block-heading')
+        .nextUntil('hr.wp-block-seperator')
         .map((_, element) => {
           const paragraph = loadedCheerio(element);
           paragraph.find('br').replaceWith('\n');
@@ -142,7 +141,7 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
       res.text(),
     );
     const loadedCheerio = parseHTML(body);
-    loadedCheerio('.category-post-dropdown-container').remove();
+    loadedCheerio('.sharedaddy').remove();
     loadedCheerio('script, style').remove();
 
     return loadedCheerio('.entry-content').html() ?? '';
