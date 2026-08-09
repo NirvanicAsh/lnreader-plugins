@@ -3,7 +3,7 @@ import { fetchApi } from '@libs/fetch';
 import { CheerioAPI, load as parseHTML } from 'cheerio';
 
 class PenAndPaperTranslations implements Plugin.PluginBase {
-  id = 'pen&paper';
+  id = 'penpaper';
   name = 'Pen and Paper Translations';
   site = 'https://penandpapertranslations.com/';
   version = '1.0.0';
