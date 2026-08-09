@@ -103,12 +103,7 @@ class PenAndPaperTranslations implements Plugin.PluginBase {
       loadedCheerio('figure.wp-block-post-featured-image img').first().attr('src'),
     );
 
-    loadedCheerio('p.wp-block-paragraph strong').each((_, element) => {
-      const key = loadedCheerio(element).text().trim().toLowerCase();
-      if (key === 'author:') {
-        novel.author = loadedCheerio(element).nextUntil('strong').text().trim();
-      }
-    });
+    novel.author = "Unknown";
 
     const descriptionLabel = loadedCheerio(
       'p.wp-block-paragraph strong:contains("Description:")',
